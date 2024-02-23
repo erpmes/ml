@@ -111,7 +111,7 @@ def select_feat(train_data, valid_data, test_data, select_all=True):
     if select_all:
         feat_idx = list(range(raw_x_train.shape[1]))
     else:
-        feat_idx = [0,1,2,3,4] # TODO: Select suitable feature columns.
+        feat_idx = [0] + list(range(38, 117)) # TODO: Select suitable feature columns.
         
     return raw_x_train[:,feat_idx], raw_x_valid[:,feat_idx], raw_x_test[:,feat_idx], y_train, y_valid    
  
@@ -125,7 +125,8 @@ def trainer(train_loader, valid_loader, model, config, device):
     # Define your optimization algorithm. 
     # TODO: Please check https://pytorch.org/docs/stable/optim.html to get more available algorithms.
     # TODO: L2 regularization (optimizer(weight decay...) or implement by your self).
-    optimizer = torch.optim.SGD(model.parameters(), lr=config['learning_rate'], momentum=0.9) 
+    #optimizer = torch.optim.SGD(model.parameters(), lr=config['learning_rate'], momentum=0.9) 
+    optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'])
     
     writer = SummaryWriter() # Writer of tensoboard.
 
@@ -193,9 +194,10 @@ config = {
     'select_all': True,   # Whether to use all features.
     'valid_ratio': 0.2,   # validation_size = train_size * valid_ratio
     'n_epochs': 3000,     # Number of epochs.            
-    'batch_size': 256, 
-    'learning_rate': 1e-5,              
-    'early_stop': 400,    # If model has not improved for this many consecutive epochs, stop training.     
+    'batch_size': 128, 
+#    'learning_rate': 1e-5,
+    'learning_rate': 1e-3,              
+    'early_stop': 1000,    # If model has not improved for this many consecutive epochs, stop training.     
     'save_path': './models/model.ckpt'  # Your model will be saved here.
 }
 
