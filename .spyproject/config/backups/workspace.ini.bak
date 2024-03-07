@@ -4,7 +4,7 @@ save_data_on_exit = True
 save_history = True
 save_non_project_files = False
 project_type = 'empty-project-type'
-recent_files = ['../.spyder-py3/temp.py', 'hw01/hw01.py', 'google_online_pred.py', '../anaconda3/lib/python3.10/typing.py', '../anaconda3/lib/python3.10/site-packages/google/cloud/aiplatform_v1/services/prediction_service/transports/base.py', 'monty_hall_simulate.py']
+recent_files = ['hw01/hw01.py', 'hw01/ckpt2txt.py']
 
 [main]
 version = 0.2.0

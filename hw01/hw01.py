@@ -241,7 +241,7 @@ trainer(train_loader, valid_loader, model, config, device)
 #reload_ext tensorboard
 #tensorboard --logdir=./runs/
 #subprocess.Popen(['tensorboard', '--logdir', './runs/'])
-#你可以在浏览器中打开 http://localhost:6006 查看可视化结果。
+#你可以在浏览器中打开 http://localhost:6006 查看可视化结f果。
 
 #Testing
 def save_pred(preds, file):
