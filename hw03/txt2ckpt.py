@@ -1,27 +1,62 @@
 # -*- coding: utf-8 -*-
+
 import torch
 import torch.nn as nn
+### Define Model
 
-# Neural Network Model
-class My_Model(nn.Module):
-    def __init__(self, input_dim):
-        super(My_Model, self).__init__()
-        # TODO: modify model's structure, be aware of dimensions. 
-        self.layers = nn.Sequential(
-            nn.Linear(input_dim, 16),
+class Classifier(nn.Module):
+    def __init__(self):
+        super(Classifier, self).__init__()
+        # torch.nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)
+        # torch.nn.MaxPool2d(kernel_size, stride, padding)
+        # input 維度 [3, 128, 128]
+        self.cnn = nn.Sequential(
+            nn.Conv2d(3, 64, 3, 1, 1),  # [64, 128, 128]
+            nn.BatchNorm2d(64),
             nn.ReLU(),
-            nn.Linear(16, 8),
+            nn.MaxPool2d(2, 2, 0),      # [64, 64, 64]
+
+            nn.Conv2d(64, 128, 3, 1, 1), # [128, 64, 64]
+            nn.BatchNorm2d(128),
             nn.ReLU(),
-            nn.Linear(8, 1)
+            nn.MaxPool2d(2, 2, 0),      # [128, 32, 32]
+
+            nn.Conv2d(128, 256, 3, 1, 1), # [256, 32, 32]
+            nn.BatchNorm2d(256),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2, 0),      # [256, 16, 16]
+
+            nn.Conv2d(256, 512, 3, 1, 1), # [512, 16, 16]
+            nn.BatchNorm2d(512),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2, 0),       # [512, 8, 8]
+            
+            nn.Conv2d(512, 512, 3, 1, 1), # [512, 8, 8]
+            nn.BatchNorm2d(512),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2, 0),       # [512, 4, 4]
+        )
+        self.fc = nn.Sequential(
+            nn.Linear(512*4*4, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, 512),
+            nn.ReLU(),
+            nn.Linear(512, 11)
         )
 
     def forward(self, x):
-        x = self.layers(x)
-        x = x.squeeze(1) # (B, 1) -> (B)
-        return x
+        out = self.cnn(x)
+        out = out.view(out.size()[0], -1)
+        return self.fc(out)    
 
-# 创建模型实例
-model = My_Model(117)
+# "cuda" only when GPUs are available.
+#device = "cuda" if torch.cuda.is_available() else "cpu"
+device ="cpu"
+
+
+# Initialize a model, and put it on the device specified.
+model = Classifier().to(device)
+
 
 import json
 import numpy as np
@@ -77,7 +112,6 @@ for name, param in model.named_parameters():
 
 model.load_state_dict(weights)
 '''
-
 
 # 保存模型
 torch.save(model.state_dict(), './model.ckpt')
