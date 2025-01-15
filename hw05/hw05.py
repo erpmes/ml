@@ -545,8 +545,12 @@ if not translate_only:
             optimizer.zero_grad()
             # 进行transformer的计算
             out = model(src, tgt)
+            print("src shape:", src.shape)
+            print("tgt shape:", tgt.shape)
+            print("predict shape:", out.shape)
             # 将结果送给最后的线性层进行预测
             out = model.predictor(out)
+            print("predict shape:", out.shape)
     
             """
             计算损失。由于训练时我们的是对所有的输出都进行预测，所以需要对out进行reshape一下。
@@ -586,14 +590,17 @@ def translate(src: str):
 
     # 将与原句子分词后，通过词典转为index，然后增加<bos>和<eos>
     src = torch.tensor([0] + en_vocab(en_tokenizer(src)) + [1]).unsqueeze(0).to(device)
+    print("src shape:", src.shape)
     # 首次tgt为<bos>
     tgt = torch.tensor([[0]]).to(device)
+    print("tgt shape:", tgt.shape)
     # 一个一个词预测，直到预测为<eos>，或者达到句子最大长度
     for i in range(max_length):
         # 进行transformer计算
         out = model(src, tgt)
         # 预测结果，因为只需要看最后一个词，所以取`out[:, -1]`
         predict = model.predictor(out[:, -1])
+        #print("predict shape:", predict.shape)
         # 找出最大值的index
         y = torch.argmax(predict, dim=1)
         # 和之前的预测结果拼接到一起
@@ -606,11 +613,56 @@ def translate(src: str):
     print(tgt)
     return tgt
 
+def translate_nat(src: str, max_length=72):  # 添加最大长度参数，默认设为50，可根据实际调整
+    """
+    :param src: 英文句子，例如 "I like machine learning."
+    :return: 翻译后的句子，例如：”我喜欢机器学习“
+    """
+    # 将原句子分词后，通过词典转为index，然后增加<bos>和<eos>
+    src = torch.tensor([0] + en_vocab(en_tokenizer(src)) + [1]).unsqueeze(0).to(device)
+    print("src shape:", src.shape)
+    # 初始tgt只设置为<bos>，维度为 (1, 1)
+    tgt = torch.tensor([[0]]).to(device)
+    num_pad = 71  
+    pad_tensor = torch.full((1, num_pad), 2, dtype=torch.int64).to(device)
+    
+    # 使用 torch.cat 拼接 <bos> 和 <pad>
+    tgt = torch.cat([tgt, pad_tensor], dim=1)
+
+    print("tgt shape:", tgt.shape)
+
+    # 进行一次transformer计算，直接得到整个句子的预测结果（这里会输出类似训练阶段的批量多时间步的结果）
+    out = model(src, tgt)
+    # 通过最后的预测层得到预测结果（维度是(batch_size, 最大目标句子长度, 词典大小)，这里batch_size为1）
+    predict = model.predictor(out)
+    print("predict shape:", predict.shape)
+    # 取概率最大的词对应的索引来确定每个位置的预测词，但只取前max_length个位置（限制长度）
+    y = torch.argmax(predict[:, :max_length], dim=-1)
+    print("y shape:", y.shape)
+
+    first_idx = y.squeeze(0)[0].item()
+    print("First index:", first_idx)
+    if first_idx == 1:
+        print("First index is <eos>")
+    next_indices = y.squeeze(0)[1:4].tolist()
+    print("Next few indices:", next_indices)
+    
+    # 提取出预测的索引序列（去掉batch维度）
+    predicted_indices = y.squeeze(0).tolist()
+    # 逐个输出每一个索引对应的中文词（字）
+    for idx in predicted_indices:
+        print(zh_vocab.lookup_token(idx), end=' ')
+    print()
+    return "".join([zh_vocab.lookup_token(idx) for idx in predicted_indices])
+
 
 translate("Alright, this project is finished. Let's see how good this is.")
 translate("In this simulation, each black dot is one nerve cell.")
 translate("The front end needs to be controlled so that only one data packet can be edited and saved at a time (if a data packet is being edited, a prompt needs to be given when clicking the edit button of another data packet.)")
 
+translate_nat("Alright, this project is finished. Let's see how good this is.")
+translate_nat("In this simulation, each black dot is one nerve cell.")
+translate_nat("The front end needs to be controlled so that only one data packet can be edited and saved at a time (if a data packet is being edited, a prompt needs to be given when clicking the edit button of another data packet.)")
 
 
 
