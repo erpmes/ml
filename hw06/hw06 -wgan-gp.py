@@ -271,15 +271,38 @@ class TrainerGAN():
         # model preparation
         self.G = self.G.cuda()
         self.D = self.D.cuda()
-        #self.G.load_state_dict(torch.load('./checkpoints/2025-02-27_10-25-32_GAN/G_29.pth'))
-        #self.D.load_state_dict(torch.load('./checkpoints/2025-02-27_10-25-32_GAN/D_29.pth'))        
+        self.G.load_state_dict(torch.load('./checkpoints/2025-02-27_15-34-04_GAN/G_99.pth'))
+        self.D.load_state_dict(torch.load('./checkpoints/2025-02-27_15-34-04_GAN/D_99.pth'))        
         self.G.train()
         self.D.train()
-    def gp(self):
+    def gp(self, real_imgs, fake_imgs):
         """
         Implement gradient penalty function
         """
-        pass
+        """实现梯度惩罚项"""
+        batch_size = real_imgs.size(0)
+        
+        # 生成插值样本
+        alpha = torch.rand(batch_size, 1, 1, 1).cuda()
+        interpolates = (alpha * real_imgs + (1 - alpha) * fake_imgs).requires_grad_(True)
+        
+        # 计算判别器对插值的输出
+        d_interpolates = self.D(interpolates)
+        
+        # 计算梯度
+        gradients = torch.autograd.grad(
+            outputs=d_interpolates,
+            inputs=interpolates,
+            grad_outputs=torch.ones_like(d_interpolates),
+            create_graph=True,
+            retain_graph=True,
+        )[0]
+        
+        # 计算梯度范数与1的平方差
+        gradients = gradients.view(batch_size, -1)
+        gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean()
+        
+        return self.config["lambda_gp"] * gradient_penalty
         
     def train(self):
         """
@@ -322,7 +345,8 @@ class TrainerGAN():
                 # Loss for discriminator
                 r_loss = self.loss(r_logit, r_label)
                 f_loss = self.loss(f_logit, f_label)
-                loss_D = (r_loss + f_loss) / 2
+                gradient_penalty = self.gp(r_imgs, f_imgs)
+                loss_D = -torch.mean(r_logit) + torch.mean(f_logit) + gradient_penalty
 
                 # Discriminator backwarding
                 self.D.zero_grad()
@@ -359,7 +383,7 @@ class TrainerGAN():
                     WGAN-GP: loss_G = -torch.mean(self.D(f_imgs))
                     """
                     # Loss for the generator.
-                    loss_G = self.loss(f_logit, r_label)
+                    loss_G = -torch.mean(self.D(f_imgs))
 
                     # Generator backwarding
                     self.G.zero_grad()
@@ -425,9 +449,10 @@ config = {
     "model_type": "GAN",
     "batch_size": 64,
     "lr": 1e-4,
-    "n_epoch":100,
+    "n_epoch":500,
     "n_critic": 5,
     "z_dim": 100,
+    "lambda_gp": 10,     # 新增梯度惩罚系数
     "workspace_dir": workspace_dir, # define in the environment setting
 }
 
