@@ -180,7 +180,7 @@ class Discriminator(nn.Module):
             self.conv_bn_lrelu(feature_dim * 2, feature_dim * 4),               #(batch, 3, 8, 8)
             self.conv_bn_lrelu(feature_dim * 4, feature_dim * 8),               #(batch, 3, 4, 4)
             nn.Conv2d(feature_dim * 8, 1, kernel_size=4, stride=1, padding=0),
-            nn.Sigmoid() 
+            #nn.Sigmoid() 
         )
         self.apply(weights_init)
     def conv_bn_lrelu(self, in_dim, out_dim):
@@ -235,8 +235,8 @@ class TrainerGAN():
         WGAN: use RMSprop optimizer
         WGAN-GP: use Adam optimizer 
         """
-        self.opt_D = torch.optim.Adam(self.D.parameters(), lr=self.config["lr"], betas=(0.5, 0.999))
-        self.opt_G = torch.optim.Adam(self.G.parameters(), lr=self.config["lr"], betas=(0.5, 0.999))
+        self.opt_D = torch.optim.RMSprop(self.D.parameters(), lr=self.config["lr"])
+        self.opt_G = torch.optim.RMSprop(self.G.parameters(), lr=self.config["lr"])
         
         self.dataloader = None
         self.log_dir = os.path.join(self.config["workspace_dir"], 'logs')
@@ -271,8 +271,9 @@ class TrainerGAN():
         # model preparation
         self.G = self.G.cuda()
         self.D = self.D.cuda()
-        #self.G.load_state_dict(torch.load('./checkpoints/2025-02-27_10-25-32_GAN/G_29.pth'))
-        #self.D.load_state_dict(torch.load('./checkpoints/2025-02-27_10-25-32_GAN/D_29.pth'))        
+        self.G.load_state_dict(torch.load('./checkpoints/2025-02-27_11-22-22_GAN/G_19.pth'))
+        self.D.load_state_dict(torch.load('./checkpoints/2025-02-26_20-33-08_GAN/D_199.pth'))
+
         self.G.train()
         self.D.train()
     def gp(self):
@@ -320,10 +321,8 @@ class TrainerGAN():
                     loss_D = -torch.mean(r_logit) + torch.mean(f_logit) + gradient_penalty
                 """
                 # Loss for discriminator
-                r_loss = self.loss(r_logit, r_label)
-                f_loss = self.loss(f_logit, f_label)
-                loss_D = (r_loss + f_loss) / 2
-
+                loss_D = -torch.mean(r_logit) + torch.mean(f_logit)
+                
                 # Discriminator backwarding
                 self.D.zero_grad()
                 loss_D.backward()
@@ -334,8 +333,8 @@ class TrainerGAN():
                 
                 WGAN: below code
                 """
-                # for p in self.D.parameters():
-                #     p.data.clamp_(-self.config["clip_value"], self.config["clip_value"])
+                for p in self.D.parameters():
+                    p.data.clamp_(-self.config["clip_value"], self.config["clip_value"])
 
 
 
@@ -359,7 +358,7 @@ class TrainerGAN():
                     WGAN-GP: loss_G = -torch.mean(self.D(f_imgs))
                     """
                     # Loss for the generator.
-                    loss_G = self.loss(f_logit, r_label)
+                    loss_G = -torch.mean(self.D(f_imgs))
 
                     # Generator backwarding
                     self.G.zero_grad()
@@ -424,10 +423,11 @@ In this section, we will first set the config for trainer, then use it to train 
 config = {
     "model_type": "GAN",
     "batch_size": 64,
-    "lr": 1e-4,
-    "n_epoch":100,
+    "lr": 5e-5,
+    "n_epoch": 200,
     "n_critic": 5,
     "z_dim": 100,
+    "clip_value": 0.01,    # 权重裁剪阈值（典型值0.01）
     "workspace_dir": workspace_dir, # define in the environment setting
 }
 
@@ -443,7 +443,7 @@ In this section, we will use trainer to train model
 
 #Inference through trainer
 # save the 1000 images into ./output folder
-#trainer.inference(f'{workspace_dir}/checkpoints/2025-02-18_22-20-31_GAN/G_0.pth') # you have to modify the path when running this line
+#trainer.inference(f'{workspace_dir}/checkpoints/2025-02-26_20-33-08_GAN/G_199.pth') # you have to modify the path when running this line
      
 
 #Prepare .tar file for submission
