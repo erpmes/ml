@@ -258,14 +258,14 @@ class PolicyGradientNetwork(nn.Module):
 class ValueNetwork(nn.Module):
     def __init__(self):
         super().__init__()
-        self.fc1 = nn.Linear(8, 16)
-        self.fc2 = nn.Linear(16, 16)
-        self.fc3 = nn.Linear(16, 1)  # 输出状态价值
+        self.fc1 = nn.Linear(8, 64)
+        self.fc2 = nn.Linear(64, 64)
+        self.fc3 = nn.Linear(64, 1)
         
     def forward(self, state):
-        hid = torch.tanh(self.fc1(state))
-        hid = torch.tanh(self.fc2(hid))
-        return self.fc3(hid)    
+        hid = F.relu(self.fc1(state))
+        hid = F.relu(self.fc2(hid))
+        return self.fc3(hid)
 
 """
 Then, we need to build a simple agent. The agent will acts according to the output of the policy network above. There are a few things can be done by agent:
@@ -317,9 +317,28 @@ class ActorCriticAgent:
         # 计算优势函数（TD目标 - 当前价值，评估动作好坏）
         advantages = td_targets - current_values.detach()
         
+        # 1. 通过策略网络计算当前状态下所有动作的概率分布
+        action_probs = self.actor_network(states)  # 假设states形状：[batch_size, 8]，输出action_probs形状：[batch_size, 4]
+        # 2. 将概率分布封装为分类分布对象
+        dist = Categorical(action_probs) # 创建可用于采样和计算熵的概率分布对象
+        # 3. 计算策略的熵并取批次平均
+        entropy = dist.entropy().mean() # 熵公式：H = -Σ p(a) * log p(a)，形状从[batch_size]压缩为标量
         # 计算Actor的损失（最大化优势加权的log概率）
         log_probs_tensor = torch.stack(log_probs)
-        actor_loss = -(log_probs_tensor * advantages).sum()
+        # 5. 构造包含熵正则化的Actor损失函数
+        '''
+        假设动作概率变为 [0.01, 0.97, 0.01, 0.01]
+        对应的熵计算：
+        H = -(0.01*ln0.01 + 0.97*ln0.97 + 0.01*ln0.01 + 0.01*ln0.01)
+        ≈ 0.242 （低熵值，正则化惩罚小）
+        
+        动作概率为 [0.3, 0.4, 0.2, 0.1]
+        对应的熵：
+        H = -(0.3*ln0.3 + 0.4*ln0.4 + 0.2*ln0.2 + 0.1*ln0.1)
+        ≈ 1.279 （高熵值，正则化奖励大）       
+        '''
+        actor_loss = -(log_probs_tensor * advantages).sum() - 0.01 * entropy
+        
         
         # 更新Critic
         self.critic_optimizer.zero_grad()
@@ -350,8 +369,8 @@ Training Agent
 Now let's start to train our agent. Through taking all the interactions between agent and environment as training data, the policy network can learn from all these attempts,
 """
 agent.train_mode()  # Switch network into training mode 
-EPISODE_PER_BATCH = 5  # 每个批次收集5个episode的数据
-NUM_BATCH = 500        # totally update the agent for 400 time
+EPISODE_PER_BATCH = 10  # 每个批次收集5个episode的数据
+NUM_BATCH = 600        # totally update the agent for 400 time
 
 # 存储每批次的平均总奖励、平均最终奖励
 avg_total_rewards, avg_final_rewards = [], []
