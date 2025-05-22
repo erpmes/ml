@@ -172,7 +172,7 @@ async def main():
     '''
     client = MCPClient()
     try:
-        await client.connect_to_sse_server(server_url="http://deepsearcher-mcp.gzp-in.woa.com/sse")
+        await client.connect_to_sse_server(server_url="http://127.0.0.1:8080/sse")
         await client.chat_loop()
     finally:
         await client.cleanup()
